@@ -146,7 +146,7 @@ seqData_t seqData[OSCS][SEQ_LENGTH];
 signed char reverbBufferL[REVERB_BUFFER_SIZE];
 signed char reverbBufferR[REVERB_BUFFER_SIZE];
 
-int timerNext;
+long timerNext;
 int counter;
 int seqCounter;
 int barCounter;
@@ -399,8 +399,8 @@ void loop()
 
   while (true)
   {
-    int timer = micros();
-    if (timer > timerNext)
+    long timer = micros();
+    if ((timer - timerNext) > 0)
     {
       timerNext += SAMPLE_US;
       break;
