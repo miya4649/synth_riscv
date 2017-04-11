@@ -46,8 +46,9 @@ const int SEQ_LENGTH = 16;
 const int SAMPLE_US = 40;
 
 const int CONST03 = (1 << FIXED_BITS << FIXED_BITS_ENV);
-const int CONST04 = (FIXED_SCALE >> 1);
+const int CONST04 = (FIXED_SCALE >> 0);
 const int CONST05 = (CONST04 / OSCS);
+const int REVERB_VOLUME = (CONST04 >> 2);
 
 typedef struct
 {
@@ -146,7 +147,7 @@ seqData_t seqData[OSCS][SEQ_LENGTH];
 signed char reverbBufferL[REVERB_BUFFER_SIZE];
 signed char reverbBufferR[REVERB_BUFFER_SIZE];
 
-long timerNext;
+int32_t timerNext;
 int counter;
 int seqCounter;
 int barCounter;
@@ -218,8 +219,8 @@ void synth()
     }
 
     int waveAddr = (unsigned int)(params[i].count +
-                                   (params[i].mod0 * params[i].modLevel0) +
-                                   (params[i].mod1 * params[i].modLevel1)) >> WAVE_ADDR_SHIFT_M;
+                                  (params[i].mod0 * params[i].modLevel0) +
+                                  (params[i].mod1 * params[i].modLevel1)) >> WAVE_ADDR_SHIFT_M;
 
     // fetch wave data
     int waveAddrF = waveAddr >> FIXED_BITS;
@@ -269,7 +270,7 @@ void setup()
     params[i].envelopeDiffR = (0 - CONST03) >> 13;
     params[i].levelL = CONST05;
     params[i].levelR = CONST05;
-    params[i].levelRev = CONST04;
+    params[i].levelRev = REVERB_VOLUME;
     params[i].mixOut = true;
     params[i].modPatch0 = i;
     params[i].modPatch1 = i;
@@ -374,6 +375,14 @@ void loop()
   // reverb
   if ((reverbCounter & 1) == 0)
   {
+    int reverbL = (int)reverbBufferR[reverbAddrR] << OUT_SHIFT_M1;
+    int reverbR = (int)reverbBufferL[reverbAddrL] << OUT_SHIFT_M1;
+    reverbL += mixRevR;
+    reverbR += mixRevL;
+    reverbL >>= OUT_SHIFT;
+    reverbR >>= OUT_SHIFT;
+    reverbBufferL[reverbAddrL] = reverbL;
+    reverbBufferR[reverbAddrR] = reverbR;
     reverbAddrL++;
     if (reverbAddrL > 0xfff)
     {
@@ -384,14 +393,6 @@ void loop()
     {
       reverbAddrR = 0;
     }
-    int reverbL = (int)reverbBufferR[reverbAddrR] << OUT_SHIFT_M1;
-    int reverbR = (int)reverbBufferL[reverbAddrL] << OUT_SHIFT_M1;
-    reverbL += mixRevR;
-    reverbR += mixRevL;
-    reverbL >>= OUT_SHIFT;
-    reverbR >>= OUT_SHIFT;
-    reverbBufferL[reverbAddrL] = reverbL;
-    reverbBufferR[reverbAddrR] = reverbR;
   }
   reverbCounter++;
   int outL = (mixL >> OUT_SHIFT) + reverbBufferL[reverbAddrL] + OUT_OFFSET;
@@ -399,7 +400,7 @@ void loop()
 
   while (true)
   {
-    long timer = micros();
+    int32_t timer = micros();
     if ((timer - timerNext) > 0)
     {
       timerNext += SAMPLE_US;
